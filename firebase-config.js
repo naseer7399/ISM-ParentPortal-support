@@ -99,15 +99,15 @@
    ------------------------------------------------------------------ */
 
 // For Firebase JS SDK v7.20.0 and later, measurementId is optional
-const firebaseConfig = {
-  apiKey: "AIzaSyCUOJ-D_CWS5QFbzX8k69WVUv12KJ_h0Ek",
-  authDomain: "iks-1-4v-db.firebaseapp.com",
-  projectId: "iks-1-4v-db",
-  storageBucket: "iks-1-4v-db.firebasestorage.app",
-  messagingSenderId: "911159075301",
-  appId: "1:911159075301:web:5d620a7914c4f9827f4f0c",
-  measurementId: "G-BPQG3B30WR"
+const FIREBASE_CONFIG = {
+   apiKey: "AIzaSyCUOJ-D_CWS5QFbzX8k69WVUv12KJ_h0Ek",
+   authDomain: "iks-1-4v-db.firebaseapp.com",
+   projectId: "iks-1-4v-db",
+   storageBucket: "iks-1-4v-db.firebasestorage.app",
+   messagingSenderId: "911159075301",
+   appId: "1:911159075301:web:5d620a7914c4f9827f4f0c",
+   measurementId: "G-BPQG3B30WR"
 };
 
 // Flip this to true only after completing the steps above.
-const firebaseConfig = true;
+const FIREBASE_ENABLED = true;
