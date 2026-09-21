@@ -98,7 +98,8 @@
    internet who finds your config, which would expose student data.
    ------------------------------------------------------------------ */
 
-const FIREBASE_CONFIG = {
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
   apiKey: "AIzaSyCUOJ-D_CWS5QFbzX8k69WVUv12KJ_h0Ek",
   authDomain: "iks-1-4v-db.firebaseapp.com",
   projectId: "iks-1-4v-db",
@@ -109,4 +110,4 @@ const FIREBASE_CONFIG = {
 };
 
 // Flip this to true only after completing the steps above.
-const FIREBASE_ENABLED = true;
+const firebaseConfig = true;
