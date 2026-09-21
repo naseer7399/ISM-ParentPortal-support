@@ -98,7 +98,7 @@
    internet who finds your config, which would expose student data.
    ------------------------------------------------------------------ */
 
-const firebaseConfig = {
+const FIREBASE_CONFIG = {
   apiKey: "AIzaSyCUOJ-D_CWS5QFbzX8k69WVUv12KJ_h0Ek",
   authDomain: "iks-1-4v-db.firebaseapp.com",
   projectId: "iks-1-4v-db",
