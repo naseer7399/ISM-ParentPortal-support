@@ -523,7 +523,7 @@ function renderShell(){
     <div class="role-pill"><span class="dot"></span>${ROLE_LABELS[SESSION.role] || 'Guest'} access</div>
     ${cloudDocRef ? `<div class="role-pill" style="background:rgba(255,255,255,0.06);"><span class="dot" style="background:#2F8F5B;"></span>Cloud sync on</div>` : ''}
     <button class="nav-item" id="btnLogout">${ICONS.logout}<span>Log out</span></button>
-    <div class="app-copyright">\u00a9 2026 Naseer all rights reserved.</div>`;
+    <div class="app-copyright">\u00a9 2026 Naseer@GitHub, Inc.</div>`;
   document.querySelectorAll('.nav-item[data-tab]').forEach(btn => {
     btn.addEventListener('click', () => navigate(btn.dataset.tab));
   });
@@ -684,7 +684,7 @@ function renderStudentsShell(){
 function renderStudentsTable(){
   const canEdit = can('edit-students');
   const canDelete = SESSION.role === 'management';
-  const isTeacher = SESSION.role === 'teacher';
+  const isManagement = SESSION.role === 'management';
   let list = DB.students.filter(s => {
     const q = studentFilter.q.trim().toLowerCase();
     const matchQ = !q || s.name.toLowerCase().includes(q) || s.id.toLowerCase().includes(q);
@@ -693,18 +693,17 @@ function renderStudentsTable(){
   });
   const area = document.getElementById('studentsTableArea');
   if(!area) return;
-  const headCols = isTeacher
-    ? `<th>Admission No.</th><th>Name</th><th>Class</th><th>Section</th><th>Date of birth</th><th>Student's Aadhaar</th><th>Father's name</th><th>Father's Aadhaar</th><th>Mother's name</th><th>Mother's Aadhaar</th><th>Phone</th><th></th>`
-    : `<th>Admission No.</th><th>Name</th><th>Class</th><th>Section</th><th>Father's name</th><th>Phone</th><th></th>`;
+  const headCols = isManagement
+    ? `<th>Admission No.</th><th>Name</th><th>Class &amp; Section</th><th>Date of birth</th><th>Student's Aadhaar</th><th>Father's name</th><th>Father's Aadhaar</th><th>Mother's name</th><th>Mother's Aadhaar</th><th>Phone</th><th></th>`
+    : `<th>Admission No.</th><th>Name</th><th>Class &amp; Section</th><th>Father's name</th><th>Phone</th><th></th>`;
   area.innerHTML = list.length ? `<div class="table-wrap"><table>
       <thead><tr>${headCols}</tr></thead>
       <tbody>
         ${list.map(s => `<tr>
           <td>${esc(s.id)}</td>
           <td>${esc(s.name)}</td>
-          <td>${esc(s.class)}</td>
-          <td>${esc(s.section)}</td>
-          ${isTeacher ? `
+          <td>${esc(s.class)}${s.section ? ('-' + esc(s.section)) : ''}</td>
+          ${isManagement ? `
           <td>${fmtDate(s.dob)}</td>
           <td>${esc(s.studentAadhar)||'\u2014'}</td>
           <td>${esc(s.fatherName)}</td>
@@ -835,6 +834,17 @@ function confirmDeleteStudent(id){
   const s = studentById(id);
   if(!s) return;
   const hasFees = DB.fees.some(f => f.studentId === id);
+  const outstandingBalance = feesForStudent(id).reduce((sum,f) => sum + computeFee(f).balance, 0);
+  if(outstandingBalance > 0){
+    openModal({
+      title: 'Cannot delete student',
+      body: `<div class="modal-note danger">${ICONS.alert}${esc(s.name)} (${esc(s.id)}) has an outstanding fee balance of ${money(outstandingBalance)}. Clear all dues before deleting this student.</div>`,
+      confirmLabel: 'OK',
+      extraButtons: [],
+      onConfirm: () => true
+    });
+    return;
+  }
   openModal({
     title: 'Delete student?',
     body: `<div class="modal-note danger">${ICONS.alert}This removes ${esc(s.name)} (${esc(s.id)}) permanently.</div>
@@ -1242,7 +1252,7 @@ function renderPaymentsShell(){
 }
 function renderPaymentsTable(){
   const canDelete = SESSION.role === 'management';
-  let list = [...DB.payments].sort((a,b) => b.date.localeCompare(a.date)).filter(p => {
+  let list = [...DB.payments].sort((a,b) => b.receipt.localeCompare(a.receipt, undefined, {numeric:true, sensitivity:'base'})).filter(p => {
     const q = paymentFilter.q.trim().toLowerCase();
     return !q || studentName(p.studentId).toLowerCase().includes(q) || p.receipt.toLowerCase().includes(q) || p.id.toLowerCase().includes(q);
   });
@@ -1305,7 +1315,7 @@ function sendPaymentMessage(paymentId, kind){
 }
 
 function openPaymentModal(){
-  if(!DB.fees.length){ toast('Add a fee record first.', true); return; }
+  if(!DB.fees.length && !DB.students.length){ toast('Add a student first.', true); return; }
   openModal({
     title: 'Record a payment',
     body: `
@@ -1331,6 +1341,7 @@ function openPaymentModal(){
           <input type="hidden" id="p_fee">
           <div class="searchable-select-list" id="p_feeList"></div>
         </div>
+        <p class="small-note" id="p_otherNote" style="display:none;">For "Other", pick the student directly \u2014 you don't need an existing fee record. Enter the fee type above and it will be recorded as a new one-off charge.</p>
       </div>
       <div class="field-row">
         <div class="field"><label>Payment date</label><input type="date" id="p_date" value="${new Date().toISOString().slice(0,10)}"></div>
@@ -1344,17 +1355,32 @@ function openPaymentModal(){
     `,
     confirmLabel: 'Record payment',
     onConfirm: () => {
-      const feeId = document.getElementById('p_fee').value;
+      const selected = document.getElementById('p_fee').value;
       const errEl = document.getElementById('p_error');
-      if(!feeId){ errEl.style.display='block'; errEl.textContent = 'Choose a student / fee to pay towards.'; return false; }
+      const typeFilter = document.getElementById('p_feeTypeFilter').value;
+      const customType = document.getElementById('p_feeTypeOther').value.trim();
+      if(!selected){ errEl.style.display='block'; errEl.textContent = 'Choose a student / fee to pay towards.'; return false; }
       const amount = Number(document.getElementById('p_amount').value);
-      const f = feeById(feeId);
-      const c = computeFee(f);
       if(!amount || amount <= 0){ errEl.style.display='block'; errEl.textContent = 'Enter an amount greater than zero.'; return false; }
-      if(amount > c.balance){ errEl.style.display='block'; errEl.textContent = `Amount exceeds the remaining balance of ${money(c.balance)}.`; return false; }
+
+      let f;
+      if(selected.indexOf('student:') === 0){
+        // "Other" fee type with no existing fee record: create the charge on the fly.
+        if(typeFilter !== 'Other' || !customType){ errEl.style.display='block'; errEl.textContent = 'Enter the fee type for this "Other" charge.'; return false; }
+        const studentId = selected.slice('student:'.length);
+        if(!studentById(studentId)){ errEl.style.display='block'; errEl.textContent = 'Choose a student / fee to pay towards.'; return false; }
+        f = { id: nextId('F', DB.fees, 3), studentId, year:'2026-27', type: customType, amount, discount:0, discountReason:'' };
+        DB.fees.push(f);
+      }else{
+        f = feeById(selected);
+        if(!f){ errEl.style.display='block'; errEl.textContent = 'Choose a student / fee to pay towards.'; return false; }
+        const c = computeFee(f);
+        if(amount > c.balance){ errEl.style.display='block'; errEl.textContent = `Amount exceeds the remaining balance of ${money(c.balance)}.`; return false; }
+      }
+
       const rec = {
         id: nextId('P', DB.payments, 3),
-        feeId,
+        feeId: f.id,
         studentId: f.studentId,
         date: document.getElementById('p_date').value,
         amount,
@@ -1390,12 +1416,26 @@ function openPaymentModal(){
     });
     feeItems.length = 0;
     feeItems.push(...filtered);
+    if(typeFilter === 'Other'){
+      // Let management pick a student directly and record a one-off "Other" charge
+      // even when no fee record exists for them yet.
+      DB.students.forEach(s => {
+        feeItems.push({
+          value: `student:${s.id}`,
+          label: `${s.name} \u2014 new "Other" charge`,
+          sub: `Admission No. ${s.id}${customType ? ' \u00b7 ' + document.getElementById('p_feeTypeOther').value.trim() : ' \u00b7 enter fee type above'}`,
+          searchText: `${s.name} ${s.id}`.toLowerCase()
+        });
+      });
+    }
   }
   buildFeeItems();
   initSearchableSelect('p_feeInput', 'p_feeList', 'p_fee', feeItems);
 
   document.getElementById('p_feeTypeFilter').addEventListener('change', (e) => {
-    document.getElementById('p_feeTypeOtherWrap').style.display = e.target.value === 'Other' ? 'block' : 'none';
+    const isOther = e.target.value === 'Other';
+    document.getElementById('p_feeTypeOtherWrap').style.display = isOther ? 'block' : 'none';
+    document.getElementById('p_otherNote').style.display = isOther ? 'block' : 'none';
     buildFeeItems();
     document.getElementById('p_feeInput').value = '';
     document.getElementById('p_fee').value = '';
