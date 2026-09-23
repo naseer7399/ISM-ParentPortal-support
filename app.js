@@ -684,7 +684,6 @@ function renderStudentsShell(){
 function renderStudentsTable(){
   const canEdit = can('edit-students');
   const canDelete = SESSION.role === 'management';
-  const isManagement = SESSION.role === 'management';
   let list = DB.students.filter(s => {
     const q = studentFilter.q.trim().toLowerCase();
     const matchQ = !q || s.name.toLowerCase().includes(q) || s.id.toLowerCase().includes(q);
@@ -693,9 +692,7 @@ function renderStudentsTable(){
   });
   const area = document.getElementById('studentsTableArea');
   if(!area) return;
-  const headCols = isManagement
-    ? `<th>Admission No.</th><th>Name</th><th>Class &amp; Section</th><th>Date of birth</th><th>Student's Aadhaar</th><th>Father's name</th><th>Father's Aadhaar</th><th>Mother's name</th><th>Mother's Aadhaar</th><th>Phone</th><th></th>`
-    : `<th>Admission No.</th><th>Name</th><th>Class &amp; Section</th><th>Father's name</th><th>Phone</th><th></th>`;
+  const headCols = `<th>Admission No.</th><th>Name</th><th>Class &amp; Section</th><th>Date of birth</th><th>Student's Aadhaar</th><th>Father's name</th><th>Father's Aadhaar</th><th>Mother's name</th><th>Mother's Aadhaar</th><th>Phone</th><th></th>`;
   area.innerHTML = list.length ? `<div class="table-wrap"><table>
       <thead><tr>${headCols}</tr></thead>
       <tbody>
@@ -703,7 +700,6 @@ function renderStudentsTable(){
           <td>${esc(s.id)}</td>
           <td>${esc(s.name)}</td>
           <td>${esc(s.class)}${s.section ? ('-' + esc(s.section)) : ''}</td>
-          ${isManagement ? `
           <td>${fmtDate(s.dob)}</td>
           <td>${esc(s.studentAadhar)||'\u2014'}</td>
           <td>${esc(s.fatherName)}</td>
@@ -711,10 +707,6 @@ function renderStudentsTable(){
           <td>${esc(s.motherName)||'\u2014'}</td>
           <td>${esc(s.motherAadhar)||'\u2014'}</td>
           <td>${esc(s.phone)}</td>
-          ` : `
-          <td>${esc(s.fatherName)}</td>
-          <td>${esc(s.phone)}</td>
-          `}
           <td><div class="row-actions">
             <button class="btn btn-sm btn-ghost" data-view="${s.id}" title="View profile">${ICONS.eye}</button>
             <button class="btn btn-sm btn-ghost" data-msg="${s.id}" title="Message parent">${ICONS.whatsapp}</button>
